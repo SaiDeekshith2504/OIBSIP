@@ -1,0 +1,359 @@
+# ==========================================================
+# BASIC VERSION OF AI VOICE ASSISTANT
+# Created by: M. Sai Deekshith
+# Beginner-friendly Python project for VS Code
+# ==========================================================
+# 
+# WHAT THIS CODE DOES:
+# This is a simple voice assistant that listens to your voice,
+# understands it, and responds to basic commands.
+#
+# FEATURES:
+# 1. Listens to voice commands (with demo mode for testing)
+# 2. Recognizes what you said
+# 3. Responds with voice and text
+# 4. Tells you the time and date
+# 5. Can search Google for information
+# 6. Handles errors gracefully
+# 7. Works without microphone (demo mode)
+#
+# REQUIRED LIBRARIES (installed from requirements.txt):
+# - speech_recognition: Converts voice to text
+# - pyttsx3: Converts text back to voice (speaks)
+# - PyAudio: Works with your microphone
+# ==========================================================
+
+# Step 0: SUPPRESS AUDIO WARNINGS (To reduce console noise)
+# These lines hide ALSA warnings that happen in container environments
+import os
+import sys
+from io import StringIO
+
+# Suppress ALSA warnings in container environments
+os.environ['ALSA_CARD'] = 'default'
+os.environ['PULSE_PROPAGATE_DOCNAME'] = '0'
+
+# Step 1: IMPORT LIBRARIES
+# These are external tools we need to use:
+import speech_recognition as sr      # For listening and recognizing voice
+import pyttsx3                        # For speaking/converting text to voice
+import datetime                       # For getting current time and date
+import webbrowser                     # For opening web browser to search
+import urllib.parse                   # For properly formatting search URLs
+
+
+# Step 3: INITIALIZE THE VOICE ENGINE (Text-to-Speech)
+# We need to set up the engine that will speak to us
+try:
+    engine = pyttsx3.init()           # Create a speech engine
+    engine.setProperty("rate", 150)   # Set speaking speed (150 words per minute)
+except Exception as e:
+    print(f"⚠️  Warning: Could not initialize speech engine: {e}")
+    print("The assistant will work, but won't be able to speak.")
+    engine = None
+
+
+# Step 4: GLOBAL VARIABLES
+# We'll store user's name and demo mode preference here
+user_name = ""
+demo_mode = False  # Flag to track if we're in demo mode (for testing without microphone)
+
+
+# Step 4: FUNCTION 1 - SPEAK (Text-to-Speech)
+# This function makes the assistant speak out loud
+def speak(text):
+    """
+    Function to convert text into speech (make assistant talk)
+    
+    Parameters:
+        text: The message we want the assistant to say
+    """
+    # Print what we're saying (so user can read it in console)
+    print(f"🤖 Assistant: {text}")
+    
+    # If speech engine is available, speak the text
+    if engine is not None:
+        try:
+            engine.say(text)           # Queue the text to be spoken
+            engine.runAndWait()        # Wait until speaking is complete
+        except Exception as e:
+            print(f"⚠️  Could not speak: {e}")
+
+
+# Step 5: FUNCTION 2 - TAKE COMMAND (Speech-to-Text)
+# This function listens to what the user says and converts it to text
+# OR allows text input in demo mode (when no microphone is available)
+def take_command():
+    """
+    Function to listen to user's voice and convert it to text
+    OR accept text input in demo mode (for testing without microphone)
+    
+    Returns:
+        command: The text that was recognized from voice or typed by user
+    """
+    # Create a recognizer object (this listens to audio)
+    recognizer = sr.Recognizer()
+    
+    try:
+        # Use the microphone as audio source
+        with sr.Microphone() as source:
+            print("\n🎤 Listening... (Please speak now)")
+            
+            # Adjust for background noise
+            # This helps the recognizer understand better
+            recognizer.adjust_for_ambient_noise(source, duration=1)
+            
+            # Listen to audio
+            # timeout=5: Stop listening after 5 seconds of silence
+            # phrase_time_limit=5: Maximum length of speech is 5 seconds
+            audio = recognizer.listen(source, timeout=5, phrase_time_limit=5)
+            
+            print("🔄 Recognizing what you said...")
+            
+            # Use Google's speech recognition API to convert audio to text
+            command = recognizer.recognize_google(audio)
+            
+            # Convert to lowercase (so "Hello" and "hello" are treated the same)
+            command = command.lower()
+            
+            # Show what was recognized
+            print(f"✅ You said: {command}")
+            
+            return command
+            
+    # STEP 6: ERROR HANDLING (Very Important!)
+    # Different errors can happen, so we handle each one separately
+    
+    except sr.RequestError as e:
+        # This error happens when there's a network problem with Google API
+        speak(f"Sorry, I have a network problem: {str(e)}")
+        print(f"Network Error: {e}")
+        return ""
+    
+    except sr.UnknownValueError:
+        # This error happens when audio is captured but not recognized
+        speak("Sorry, I could not understand what you said. Can you please repeat?")
+        return ""
+    
+    except sr.WaitTimeoutError:
+        # This error happens when the user doesn't speak or takes too long
+        print("⏱️  Timeout: I didn't hear anything. Please speak clearly.")
+        return ""
+    
+    except OSError as e:
+        # This error happens when there's no microphone (like in containers)
+        print(f"\n⚠️  Microphone Error: {e}")
+        print("🔧 DEMO MODE: Since no microphone is available, switching to text input mode!")
+        print("💡 Tip: In demo mode, you can type commands instead of speaking.\n")
+        
+        # Set demo mode flag for this session
+        global demo_mode
+        demo_mode = True
+        
+        # Use text input instead
+        print("💬 Type your command (example: 'hello', 'time', 'date', 'search Python', 'exit'):")
+        user_input = input("📝 Your command: ").strip().lower()
+        
+        if user_input:
+            print(f"✅ Command received: {user_input}")
+            return user_input
+        else:
+            print("❌ No command entered.")
+            return ""
+    
+    except Exception as e:
+        # This catches any other unexpected errors
+        print(f"❌ Unexpected error: {e}")
+        speak("There is a problem with the microphone or system setup.")
+        return ""
+
+
+# Step 7: FUNCTION 3 - TELL TIME
+# This function tells the current time
+def tell_time():
+    """
+    Function to get current time and tell user
+    """
+    try:
+        # Get current time in HH:MM AM/PM format
+        current_time = datetime.datetime.now().strftime("%I:%M %p")
+        message = f"The current time is {current_time}"
+        speak(message)
+    except Exception as e:
+        print(f"Error getting time: {e}")
+        speak("Sorry, I could not get the time.")
+
+
+# Step 8: FUNCTION 4 - TELL DATE
+# This function tells the current date
+def tell_date():
+    """
+    Function to get current date and tell user
+    """
+    try:
+        # Get current date in format: Day Month Year (e.g., 06 June 2026)
+        current_date = datetime.datetime.now().strftime("%d %B %Y")
+        message = f"Today's date is {current_date}"
+        speak(message)
+    except Exception as e:
+        print(f"Error getting date: {e}")
+        speak("Sorry, I could not get the date.")
+
+
+# Step 9: FUNCTION 5 - SEARCH GOOGLE
+# This function searches Google for information
+def search_google(search_text):
+    """
+    Function to search Google using web browser
+    
+    Parameters:
+        search_text: What to search for on Google
+    """
+    if not search_text or search_text.strip() == "":
+        speak("Please give me something to search for.")
+        return
+    
+    try:
+        # Use urllib.parse to properly format the search URL
+        # This handles special characters correctly
+        encoded_query = urllib.parse.quote(search_text)
+        search_url = f"https://www.google.com/search?q={encoded_query}"
+        
+        # Open the search URL in default web browser
+        webbrowser.open(search_url)
+        
+        message = f"Searching Google for {search_text}"
+        speak(message)
+        print(f"🔗 Opening: {search_url}")
+        
+    except Exception as e:
+        print(f"Error during search: {e}")
+        speak("Sorry, I could not open the browser to search.")
+
+
+# Step 10: FUNCTION 6 - GREET THE USER
+# This function welcomes the user and explains what the assistant does
+def greet_user(name):
+    """
+    Function to welcome user and introduce the assistant
+    
+    Parameters:
+        name: The user's name
+    """
+    try:
+        print("\n" + "="*55)
+        print("🤖 WELCOME TO BASIC AI VOICE ASSISTANT 🤖")
+        print("="*55)
+        
+        greeting = f"Hello {name}! Welcome to the Basic AI Voice Assistant."
+        speak(greeting)
+        
+        speak("This is a beginner-friendly voice assistant created for learning Python.")
+        
+        if demo_mode:
+            speak("I notice you don't have a microphone, so I'm in text input mode.")
+            speak("You can type commands instead of speaking.")
+            print("📝 Running in TEXT INPUT MODE (no microphone detected)")
+        else:
+            speak("You can help me with a few basic tasks using your voice.")
+        
+        speak("Say 'Hello' to greet me, ask for the 'time' or 'date', search Google, or say 'exit' to stop.")
+        
+        print("✅ Assistant is ready! Start giving commands.\n")
+        
+    except Exception as e:
+        print(f"Error during greeting: {e}")
+
+
+# Step 11: FUNCTION 7 - RESPOND TO COMMANDS
+# This function processes different voice commands
+def process_command(command, user_name):
+    """
+    Function to understand and respond to voice commands
+    
+    Parameters:
+        command: The recognized voice command
+        user_name: The user's name
+    """
+    # Check if command is empty
+    if command == "" or command.strip() == "":
+        return True  # Continue the loop
+    
+    # COMMAND 1: Greet the user
+    if "hello" in command or "hi" in command:
+        response = f"Hello {user_name}! How can I help you today?"
+        speak(response)
+    
+    # COMMAND 2: Tell the current time
+    elif "time" in command:
+        tell_time()
+    
+    # COMMAND 3: Tell the current date
+    elif "date" in command:
+        tell_date()
+    
+    # COMMAND 4: Search Google
+    elif "search" in command:
+        speak("What should I search for?")
+        search_query = take_command()
+        if search_query:
+            search_google(search_query)
+    
+    # COMMAND 5: Exit/Stop the assistant
+    elif "exit" in command or "bye" in command or "stop" in command:
+        farewell = f"Goodbye {user_name}! Thanks for using the AI Voice Assistant. See you soon!"
+        speak(farewell)
+        print("\n✅ Assistant stopped. Thank you for using me!")
+        return False  # Stop the loop
+    
+    # Unknown command
+    else:
+        response = f"Sorry {user_name}, this basic version is still learning. I don't recognize that command yet. "
+        response += "Try saying 'hello', 'time', 'date', 'search', or 'exit'."
+        speak(response)
+    
+    return True  # Continue the loop
+
+
+# Step 12: MAIN PROGRAM
+# This is where the program starts when we run the file
+if __name__ == "__main__":
+    # Get user's name at the start
+    print("\n" + "="*55)
+    user_name = input("📝 Please enter your name: ").strip()
+    if not user_name:
+        user_name = "Friend"  # Default name if user doesn't enter anything
+    print("="*55)
+    
+    print("\n💡 INFO: This assistant works best with a microphone.")
+    print("   If no microphone is available, it will switch to TEXT INPUT MODE.")
+    print("   You can then type your commands instead of speaking.\n")
+    
+    # Greet the user with their name
+    greet_user(user_name)
+    
+    # MAIN LOOP: Keep listening until user says "exit"
+    try:
+        while True:
+            # Listen to user's command
+            # This will automatically switch to text input if no microphone
+            query = take_command()
+            
+            # Process the command
+            # If it returns False, we exit the loop
+            should_continue = process_command(query, user_name)
+            
+            if not should_continue:
+                break
+    
+    except KeyboardInterrupt:
+        # This handles when user presses Ctrl+C
+        print("\n\n⚠️  Program interrupted by user!")
+        speak(f"Goodbye {user_name}!")
+    except Exception as e:
+        print(f"\n❌ Unexpected error: {e}")
+        speak("An unexpected error occurred. Goodbye!")
+    
+    print("\n" + "="*55)
+    print("✅ Program ended successfully!")
+    print("="*55)
