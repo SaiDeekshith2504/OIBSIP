@@ -1,1 +1,122 @@
+# Created by: M. Sai Deekshith
+# Beginner-friendly Python project for VS Code
+# ==========================================================
+#
+# WHAT THIS CODE DOES:
+# This is a simple BMI Calculator that asks the user for weight
+# (in kilograms) and height (in feet and inches), calculates
+# Body Mass Index (BMI), and shows the health category.
+#
+# FEATURES:
+# 1. Accepts weight in kilograms
+# 2. Accepts height in feet AND inches separately
+# 3. Converts feet/inches to meters internally for the formula
+# 4. Calculates BMI using: BMI = weight / (height_m ^ 2)
+# 5. Classifies the result into WHO BMI categories
+# 6. Displays a clean, readable output
+# 7. Includes input validation for better reliability
+#
+# REQUIRED CONCEPTS:
+# - Functions for modular code
+# - User input handling
+# - Arithmetic operations
+# - Conditional logic for classification
+# ==========================================================
+
+import sys
+# Force UTF-8 output so special characters render correctly on Windows
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except AttributeError:
+        pass  # Python < 3.7 fallback
+# ── WHO BMI classification thresholds ──────────────────────────────────────
+BMI_CATEGORIES = [
+    (0,           18.5, "Underweight",         "You may be underweight. Consider consulting a healthcare provider."),
+    (18.5,        25.0, "Normal weight",        "Your BMI is within the healthy range. Keep it up!"),
+    (25.0,        30.0, "Overweight",           "You are slightly overweight. A balanced diet and exercise can help."),
+    (30.0,        35.0, "Obese (Class I)",      "Obesity Class I. Please consider speaking with a healthcare provider."),
+    (35.0,        40.0, "Obese (Class II)",     "Obesity Class II. Medical guidance is strongly recommended."),
+    (40.0, float("inf"), "Obese (Class III)",   "Obesity Class III (Severe). Please seek medical advice promptly."),
+]
+# ── Reasonable input bounds ─────────────────────────────────────────────────
+WEIGHT_MIN, WEIGHT_MAX = 2.0,  500.0   # kg
+HEIGHT_MIN, HEIGHT_MAX = 0.5,    3.0   # m
+def get_float(prompt: str, min_val: float, max_val: float) -> float:
+    """Repeatedly ask the user until a valid float within [min_val, max_val] is entered."""
+    while True:
+        raw = input(prompt).strip()
+        if not raw:
+            print("  [!] Input cannot be empty. Please try again.")
+            continue
+        try:
+            value = float(raw)
+        except ValueError:
+            print(f"  [!] '{raw}' is not a valid number. Please enter a numeric value.")
+            continue
+        if not (min_val <= value <= max_val):
+            print(f"  [!] Value must be between {min_val} and {max_val}. Got {value}.")
+            continue
+        return value
+def calculate_bmi(weight_kg: float, height_m: float) -> float:
+    """Return BMI rounded to two decimal places using the standard formula."""
+    return round(weight_kg / (height_m ** 2), 2)
+def classify_bmi(bmi: float):
+    """Return (category_name, advice_message) for the given BMI value."""
+    for low, high, category, advice in BMI_CATEGORIES:
+        if low <= bmi < high:
+            return category, advice
+    return "Unknown", "Could not determine category."
+def display_result(weight: float, height: float, bmi: float, category: str, advice: str) -> None:
+    """Pretty-print the BMI result in a boxed table."""
+    width = 52
+    separator = "-" * width
+    print()
+    print("+" + "=" * width + "+")
+    print("|" + "  BMI CALCULATION RESULT".center(width) + "|")
+    print("+" + "=" * width + "+")
+    print(f"|  Weight : {weight:>6.2f} kg".ljust(width + 1) + "|")
+    print(f"|  Height : {height:>6.2f} m".ljust(width + 1) + "|")
+    print("|" + separator + "|")
+    print(f"|  BMI    : {bmi:>6.2f}".ljust(width + 1) + "|")
+    print(f"|  Status : {category}".ljust(width + 1) + "|")
+    print("|" + separator + "|")
+    print(f"|  {advice}".ljust(width + 1) + "|")
+    print("+" + "=" * width + "+")
+    print()
+def main() -> None:
+    print()
+    print("=" * 54)
+    print("            BMI CALCULATOR  (WHO Standards)")
+    print("=" * 54)
+    print("  Enter your details below.\n")
+    while True:
+        # ── Collect inputs ──────────────────────────────────────
+        try:
+            weight = get_float(
+                f"  Weight (kg) [{WEIGHT_MIN}-{WEIGHT_MAX}]: ",
+                WEIGHT_MIN, WEIGHT_MAX,
+            )
+            height = get_float(
+                f"  Height  (m) [{HEIGHT_MIN}-{HEIGHT_MAX}]: ",
+                HEIGHT_MIN, HEIGHT_MAX,
+            )
+        except (KeyboardInterrupt, EOFError):
+            print("\n\n  Goodbye! Stay healthy!\n")
+            break
+        # ── Calculate and display ───────────────────────────────
+        bmi      = calculate_bmi(weight, height)
+        category, advice = classify_bmi(bmi)
+        display_result(weight, height, bmi, category, advice)
+        # ── Offer another calculation ───────────────────────────
+        try:
+            again = input("  Calculate again? (y/n): ").strip().lower()
+        except (KeyboardInterrupt, EOFError):
+            again = "n"
+        if again not in ("y", "yes"):
+            print("\n  Goodbye! Stay healthy!\n")
+            break
+        print()
+if __name__ == "__main__":
+    main()
 
